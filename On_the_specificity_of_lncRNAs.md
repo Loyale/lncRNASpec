@@ -92,22 +92,48 @@ Admittedly, we were quick to claim that lncRNAs are significantly more cell type
 
 ```r
 p <- ggplot(geneSummary)
-p + stat_ecdf(aes(x = maxSpec, color = gene_type)) + theme_bw() + scale_color_manual(values = c("red", 
-    "grey5")) + facet_grid(. ~ time) + coord_equal(1)
+p <- p + stat_ecdf(aes(x = maxSpec, color = gene_type)) + theme_bw() + scale_color_manual(values = c("red", 
+    "grey5")) + # scale_x_continuous(limits=c(0,1.0)) +
+facet_grid(. ~ time) + coord_equal(1)
+p
 ```
 
 ![plot of chunk iniitial_spec](figure/iniitial_spec.png) 
+
+```r
+pdf("initial_spec.pdf", width = 10, height = 10)
+p
+dev.off()
+```
+
+```
+pdf 
+  2 
+```
 
 Here we see that the empirical cumulative density function (ecdf) of the maximum specificity score $S$ for both protein coding genes and lncRNAs from our set of statistically significant genes indicates that the lncRNAs are far more cell type specific at any time point than protein coding genes. However, this analysis was done without consideration for the distribution of expression values between the two gene types.
 
 
 ```r
 p <- ggplot(geneSummary)
-p + geom_density(aes(x = maxFPKM, color = gene_type)) + facet_grid(. ~ time) + 
-    theme_bw() + scale_color_manual(values = c("red", "black")) + coord_equal(2)
+p <- p + geom_density(aes(x = maxFPKM, color = gene_type)) + facet_grid(. ~ 
+    time) + theme_bw() + scale_color_manual(values = c("red", "black")) + coord_equal(2)
+
+p
 ```
 
 ![plot of chunk cell_type_expression_dist](figure/cell_type_expression_dist.png) 
+
+```r
+pdf("cell_type_expression_dist.pdf", width = 10, height = 10)
+p
+dev.off()
+```
+
+```
+pdf 
+  2 
+```
 
 As our reviewer indicated, there is a strong bias for lncRNAs in the lower end of the expression regime. The next section(s) will detail the reviewer's concerns and attempt to address these issues in sufficient detail.
 
@@ -283,14 +309,27 @@ One of the ways that we have addressed this criticism in the past, as it pertain
 
 ```r
 p <- ggplot(geneSummary)
-p + geom_density(aes(x = maxFPKM, color = gene_type)) + facet_grid(. ~ time) + 
-    theme_bw() + scale_color_manual(values = c("red", "black")) + coord_equal(2) + 
+p <- p + geom_density(aes(x = maxFPKM, color = gene_type)) + facet_grid(. ~ 
+    time) + theme_bw() + scale_color_manual(values = c("red", "black")) + coord_equal(2) + 
     geom_vline(xintercept = fpkmCutoff, linetype = "dashed", color = "grey50") + 
     annotate("text", label = "FPKM threshold", x = fpkmCutoff, y = 1, angle = 90, 
         vjust = 1.5, hjust = 0)
+
+p
 ```
 
 ![plot of chunk ignore_low](figure/ignore_low.png) 
+
+```r
+pdf("ignore_low.pdf", width = 10, height = 10)
+p
+dev.off()
+```
+
+```
+pdf 
+  2 
+```
 
 
 Assuming that gene must have fpkm greater than cutoff at given timepoint
@@ -298,11 +337,24 @@ Assuming that gene must have fpkm greater than cutoff at given timepoint
 ```r
 # fpkmCutoff<-log10(2)
 p <- ggplot(subset(geneSummary, maxFPKM >= fpkmCutoff))
-p + stat_ecdf(aes(x = maxSpec, color = gene_type)) + facet_grid(. ~ time) + 
+p1 <- p + stat_ecdf(aes(x = maxSpec, color = gene_type)) + facet_grid(. ~ time) + 
     theme_bw() + scale_color_manual(values = c("red", "black")) + coord_equal(1)
+
+p1
 ```
 
 ![plot of chunk CDF_fpkmCutoff](figure/CDF_fpkmCutoff.png) 
+
+```r
+pdf("CDF_fpkmCutoff.pdf", width = 12, height = 4)
+p1
+dev.off()
+```
+
+```
+pdf 
+  2 
+```
 
 The effect on specificity is reduced, however the lncRNAs still appear to be more tissue specific.  The problem with this analysis is that while we have removed the more strongly biasing low-expressing genes, we still have differences in the underlying distributions between lncRNAs and protein coding genes and this difference is most likely affecting our interpretations.
 
@@ -338,24 +390,48 @@ There are a few edge cases with 'perfect specificity' ($S=1.0$) that cannot be m
 
 ```r
 p <- ggplot(geneSummary)
-p + geom_point(mapping = aes(x = maxFPKM, y = maxSpec), color = "black", alpha = 0.3, 
-    data = subset(geneSummary, gene_type == "Protein coding")) + geom_point(mapping = aes(x = maxFPKM, 
-    y = maxSpec), color = "red", data = subset(geneSummary, gene_type != "Protein coding")) + 
-    facet_grid(gene_type ~ time) + theme_bw() + coord_equal(4)
+p + geom_point(mapping = aes(x = log(maxFPKM), y = asin(maxSpec), color = gene_type), 
+    alpha = 0.3) + facet_grid(gene_type ~ time) + theme_bw() + scale_color_manual(values = c("red", 
+    "black"))
 ```
 
-![plot of chunk spec_v_fpkm](figure/spec_v_fpkm.png) 
+![plot of chunk spec_v_fpkm](figure/spec_v_fpkm1.png) 
+
+```r
+
+p + geom_point(mapping = aes(x = log(maxFPKM), y = maxSpec, color = gene_type), 
+    alpha = 0.3) + facet_grid(gene_type ~ time) + theme_bw() + scale_color_manual(values = c("red", 
+    "black"))
+```
+
+![plot of chunk spec_v_fpkm](figure/spec_v_fpkm2.png) 
+
+```r
+
+```
 
 The relationship between $S$ and maxFPKM is a continuous function that can be reasonably approximated by fitting the two variables using a cubic spline.
 
 
 ```r
-p + geom_smooth(aes(x = maxFPKM, y = maxSpec, color = gene_type, fill = gene_type), 
+p1 <- p + geom_smooth(aes(x = maxFPKM, y = maxSpec, color = gene_type, fill = gene_type), 
     method = "auto") + facet_grid(. ~ time) + theme_bw() + scale_color_manual(values = c("red", 
     "black")) + scale_fill_manual(values = c("red", "grey50")) + coord_equal(4)
+p1
 ```
 
 ![plot of chunk spec_v_fpkm_smooth](figure/spec_v_fpkm_smooth.png) 
+
+```r
+pdf("spec_v_fpkm_smooth.pdf", width = 12, height = 4)
+p1
+dev.off()
+```
+
+```
+pdf 
+  2 
+```
 
 While the two curves are very similar, there does appear to be some separation in the regime of ~5-50 FPKM.  Let's try and model this relationship and see if gene_type has any influence over the shape of these data.
 
@@ -366,12 +442,12 @@ Owing to the quadratic relationship between $S$ and max FPKM, we decided to mode
 
 ########################################## Cell-level model (projection neurons) #
 
-fit1 <- gam(maxSpec ~ s(maxFPKM, bs = "cs") + gene_type + time, dat = geneSummary, 
-    family = gaussian)  # I actually think it should be a truncated gaussian or beta, but I'm not entirely sure
+fit1 <- gam(maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + time + gene_type, 
+    dat = geneSummary, family = gaussian)  # I actually think it should be a truncated gaussian or beta, but I'm not entirely sure
 
 # Fitting vgam using beta distribution instead of gaussian
-# fit1<-vgam(maxSpec~s(maxFPKM)+gene_type+time,dat=subset(geneSummary,!is.na(maxSpec)
-# & maxSpec<1.0),family=beta.ab(A = 0.10, B = 1.0))
+# fit1<-vgam(maxSpec~s(maxFPKM,by=gene_type)+gene_type+time,dat=subset(geneSummary,!is.na(maxSpec)
+# & maxSpec<1.0),family=betaff)
 # fit2<-vgam(maxSpec~s(maxFPKM)+time,dat=subset(geneSummaryAIC,!is.na(maxSpec)
 # & maxSpec<1.0),family=beta.ab(A = 0.10, B = 1.0)) mycol<-c('red','blue')
 # plot(fit1,se=TRUE,overlay=TRUE,llwd=2,lcol=mycol,scol=mycol)
@@ -385,12 +461,12 @@ Family: gaussian
 Link function: identity 
 
 Formula:
-maxSpec ~ s(maxFPKM, bs = "cs") + gene_type + time
+maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + time + gene_type
 
 Estimated degrees of freedom:
-8.98  total = 13.98 
+7.73 8.86  total = 21.59 
 
-GCV score: 0.00587
+GCV score: 0.005863
 ```
 
 ```r
@@ -404,26 +480,27 @@ Family: gaussian
 Link function: identity 
 
 Formula:
-maxSpec ~ s(maxFPKM, bs = "cs") + gene_type + time
+maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + time + gene_type
 
 Parametric coefficients:
                         Estimate Std. Error t value Pr(>|t|)    
-(Intercept)              0.39912    0.00165  241.44  < 2e-16 ***
-gene_typeProtein coding -0.02553    0.00156  -16.35  < 2e-16 ***
-timeE16                  0.00447    0.00115    3.87  0.00011 ***
-timeE18                  0.00764    0.00116    6.61  3.8e-11 ***
-timeP1                   0.01070    0.00116    9.24  < 2e-16 ***
+(Intercept)              0.38818    0.00320  121.48  < 2e-16 ***
+timeE16                  0.00438    0.00115    3.80  0.00014 ***
+timeE18                  0.00754    0.00115    6.53  6.6e-11 ***
+timeP1                   0.01050    0.00116    9.07  < 2e-16 ***
+gene_typeProtein coding -0.01464    0.00314   -4.66  3.2e-06 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 Approximate significance of smooth terms:
-            edf Ref.df    F p-value    
-s(maxFPKM) 8.98      9 1630  <2e-16 ***
+                                    edf Ref.df    F p-value    
+s(maxFPKM):gene_typelincRNA        7.73   8.41  329  <2e-16 ***
+s(maxFPKM):gene_typeProtein coding 8.86   8.99 1334  <2e-16 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-R-sq.(adj) =  0.357   Deviance explained = 35.7%
-GCV score = 0.0058696  Scale est. = 0.0058673  n = 35392
+R-sq.(adj) =  0.358   Deviance explained = 35.8%
+GCV score = 0.0058626  Scale est. = 0.005859  n = 35392
 ```
 
 ```r
@@ -437,16 +514,17 @@ Family: gaussian
 Link function: identity 
 
 Formula:
-maxSpec ~ s(maxFPKM, bs = "cs") + gene_type + time
+maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + time + gene_type
 
 Parametric Terms:
-          df     F p-value
-gene_type  1 267.4  <2e-16
-time       3  31.2  <2e-16
+          df    F p-value
+time       3 30.1 < 2e-16
+gene_type  1 21.7 3.2e-06
 
 Approximate significance of smooth terms:
-            edf Ref.df    F p-value
-s(maxFPKM) 8.98   9.00 1630  <2e-16
+                                    edf Ref.df    F p-value
+s(maxFPKM):gene_typelincRNA        7.73   8.41  329  <2e-16
+s(maxFPKM):gene_typeProtein coding 8.86   8.99 1334  <2e-16
 ```
 
 ```r
@@ -476,7 +554,8 @@ To confirm that our lncRNA specificity result is significant, we would like to c
 
 
 ```r
-fit_null <- gam(maxSpec ~ s(maxFPKM, bs = "cs") + time, dat = geneSummary)
+fit_null <- gam(maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + time, dat = geneSummary, 
+    family = gaussian)
 
 fit_null
 ```
@@ -487,12 +566,12 @@ Family: gaussian
 Link function: identity 
 
 Formula:
-maxSpec ~ s(maxFPKM, bs = "cs") + time
+maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + time
 
 Estimated degrees of freedom:
-8.98  total = 12.98 
+7.73 8.86  total = 20.59 
 
-GCV score: 0.005914
+GCV score: 0.005866
 ```
 
 ```r
@@ -506,25 +585,26 @@ Family: gaussian
 Link function: identity 
 
 Formula:
-maxSpec ~ s(maxFPKM, bs = "cs") + time
+maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + time
 
 Parametric coefficients:
             Estimate Std. Error t value Pr(>|t|)    
-(Intercept) 0.375626   0.000821  457.64  < 2e-16 ***
-timeE16     0.004706   0.001158    4.06  4.8e-05 ***
-timeE18     0.008069   0.001160    6.96  3.5e-12 ***
-timeP1      0.011075   0.001162    9.53  < 2e-16 ***
+(Intercept) 0.373794   0.000825  453.05  < 2e-16 ***
+timeE16     0.004397   0.001153    3.81  0.00014 ***
+timeE18     0.007572   0.001155    6.55  5.6e-11 ***
+timeP1      0.010522   0.001157    9.09  < 2e-16 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 Approximate significance of smooth terms:
-            edf Ref.df    F p-value    
-s(maxFPKM) 8.98      9 2138  <2e-16 ***
+                                    edf Ref.df    F p-value    
+s(maxFPKM):gene_typelincRNA        7.73   8.41  843  <2e-16 ***
+s(maxFPKM):gene_typeProtein coding 8.86   8.99 1335  <2e-16 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-R-sq.(adj) =  0.352   Deviance explained = 35.2%
-GCV score = 0.0059137  Scale est. = 0.0059115  n = 35392
+R-sq.(adj) =  0.358   Deviance explained = 35.8%
+GCV score = 0.0058659  Scale est. = 0.0058624  n = 35392
 ```
 
 ```r
@@ -538,15 +618,16 @@ Family: gaussian
 Link function: identity 
 
 Formula:
-maxSpec ~ s(maxFPKM, bs = "cs") + time
+maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + time
 
 Parametric Terms:
      df    F p-value
-time  3 33.4  <2e-16
+time  3 30.3  <2e-16
 
 Approximate significance of smooth terms:
-            edf Ref.df    F p-value
-s(maxFPKM) 8.98   9.00 2138  <2e-16
+                                    edf Ref.df    F p-value
+s(maxFPKM):gene_typelincRNA        7.73   8.41  843  <2e-16
+s(maxFPKM):gene_typeProtein coding 8.86   8.99 1335  <2e-16
 ```
 
 ```r
@@ -569,11 +650,11 @@ anova(fit_null, fit1, test = "F")
 ```
 Analysis of Deviance Table
 
-Model 1: maxSpec ~ s(maxFPKM, bs = "cs") + time
-Model 2: maxSpec ~ s(maxFPKM, bs = "cs") + gene_type + time
-  Resid. Df Resid. Dev Df Deviance   F Pr(>F)    
-1     35379        209                           
-2     35378        208  1     1.57 267 <2e-16 ***
+Model 1: maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + time
+Model 2: maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + time + gene_type
+  Resid. Df Resid. Dev    Df Deviance    F  Pr(>F)    
+1     35371        207                                
+2     35370        207 0.997    0.127 21.7 3.3e-06 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
@@ -629,6 +710,8 @@ head(tissue.melt)
 
 geneSummaryTissue <- tissue.melt %.% group_by(gene_id, gene_type) %.% summarize(maxFPKM = max(fpkm), 
     maxSpec = maxSpecificity(fpkm))
+
+geneSummaryTissue$gene_type <- factor(geneSummaryTissue$gene_type)
 
 geneSummaryTissue.bak <- geneSummaryTissue
 ```
@@ -688,7 +771,8 @@ p + stat_ecdf(aes(x = maxSpec, color = gene_type)) + theme_bw() + scale_color_ma
 
 ####################### Tissue-level model #
 
-tissue.fit1 <- gam(maxSpec ~ s(maxFPKM, bs = "cs") + gene_type, dat = geneSummaryTissue)
+tissue.fit1 <- gam(maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + gene_type, 
+    dat = geneSummaryTissue, family = gaussian)
 # tissue.fit1<-vgam(maxSpec~s(maxFPKM)+gene_type,dat=geneSummaryTissue,family=beta.ab(A
 # = 0.0, B = 1.0))
 tissue.fit1
@@ -700,12 +784,12 @@ Family: gaussian
 Link function: identity 
 
 Formula:
-maxSpec ~ s(maxFPKM, bs = "cs") + gene_type
+maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + gene_type
 
 Estimated degrees of freedom:
-8.94  total = 10.94 
+7.46 6.98  total = 16.43 
 
-GCV score: 0.03572
+GCV score: 0.03506
 ```
 
 ```r
@@ -719,23 +803,24 @@ Family: gaussian
 Link function: identity 
 
 Formula:
-maxSpec ~ s(maxFPKM, bs = "cs") + gene_type
+maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + gene_type
 
 Parametric coefficients:
                         Estimate Std. Error t value Pr(>|t|)    
-(Intercept)              0.26498    0.00182     145   <2e-16 ***
-gene_typeProtein coding -0.05567    0.00253     -22   <2e-16 ***
+(Intercept)              0.25919    0.00237   109.3   <2e-16 ***
+gene_typeProtein coding -0.04910    0.00279   -17.6   <2e-16 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 Approximate significance of smooth terms:
-            edf Ref.df   F p-value    
-s(maxFPKM) 8.94      9 583  <2e-16 ***
+                                    edf Ref.df   F p-value    
+s(maxFPKM):gene_typelincRNA        7.46   8.34 156  <2e-16 ***
+s(maxFPKM):gene_typeProtein coding 6.98   7.83 604  <2e-16 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-R-sq.(adj) =  0.216   Deviance explained = 21.6%
-GCV score = 0.035724  Scale est. = 0.035713  n = 37452
+R-sq.(adj) =  0.231   Deviance explained = 23.1%
+GCV score = 0.035064  Scale est. = 0.035049  n = 37452
 ```
 
 ```r
@@ -749,15 +834,16 @@ Family: gaussian
 Link function: identity 
 
 Formula:
-maxSpec ~ s(maxFPKM, bs = "cs") + gene_type
+maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + gene_type
 
 Parametric Terms:
           df   F p-value
-gene_type  1 486  <2e-16
+gene_type  1 310  <2e-16
 
 Approximate significance of smooth terms:
-            edf Ref.df   F p-value
-s(maxFPKM) 8.94   9.00 583  <2e-16
+                                    edf Ref.df   F p-value
+s(maxFPKM):gene_typelincRNA        7.46   8.34 156  <2e-16
+s(maxFPKM):gene_typeProtein coding 6.98   7.83 604  <2e-16
 ```
 
 ```r
@@ -765,11 +851,17 @@ s(maxFPKM) 8.94   9.00 583  <2e-16
 plot(tissue.fit1, residuals = T, shade = T)
 ```
 
-![plot of chunk tissue_summary](figure/tissue_summary6.png) 
+![plot of chunk tissue_summary](figure/tissue_summary6.png) ![plot of chunk tissue_summary](figure/tissue_summary7.png) 
+
+```r
+plot(tissue.fit1, resid = T, pages = 1, all.terms = T, rug = F, shade = T)
+```
+
+![plot of chunk tissue_summary](figure/tissue_summary8.png) 
 
 ```r
 
-tissue.fit_null <- gam(maxSpec ~ s(maxFPKM, bs = "cs"), dat = geneSummaryTissue)
+tissue.fit_null <- gam(maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type), dat = geneSummaryTissue)
 
 tissue.fit_null
 ```
@@ -780,12 +872,12 @@ Family: gaussian
 Link function: identity 
 
 Formula:
-maxSpec ~ s(maxFPKM, bs = "cs")
+maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type)
 
 Estimated degrees of freedom:
-8.92  total = 9.92 
+7.88 5.82  total = 14.69 
 
-GCV score: 0.03619
+GCV score: 0.03535
 ```
 
 ```r
@@ -799,22 +891,23 @@ Family: gaussian
 Link function: identity 
 
 Formula:
-maxSpec ~ s(maxFPKM, bs = "cs")
+maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type)
 
 Parametric coefficients:
             Estimate Std. Error t value Pr(>|t|)    
-(Intercept) 0.231009   0.000983     235   <2e-16 ***
+(Intercept)  0.22378    0.00124     180   <2e-16 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 Approximate significance of smooth terms:
-            edf Ref.df    F p-value    
-s(maxFPKM) 8.92      9 1082  <2e-16 ***
+                                    edf Ref.df   F p-value    
+s(maxFPKM):gene_typelincRNA        7.88   8.63 412  <2e-16 ***
+s(maxFPKM):gene_typeProtein coding 5.82   6.73 794  <2e-16 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-R-sq.(adj) =  0.206   Deviance explained = 20.6%
-GCV score = 0.036186  Scale est. = 0.036177  n = 37452
+R-sq.(adj) =  0.225   Deviance explained = 22.5%
+GCV score = 0.03535  Scale est. = 0.035337  n = 37452
 ```
 
 ```r
@@ -828,19 +921,21 @@ Family: gaussian
 Link function: identity 
 
 Formula:
-maxSpec ~ s(maxFPKM, bs = "cs")
+maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type)
 
 Approximate significance of smooth terms:
-            edf Ref.df    F p-value
-s(maxFPKM) 8.92   9.00 1082  <2e-16
+                                    edf Ref.df   F p-value
+s(maxFPKM):gene_typelincRNA        7.88   8.63 412  <2e-16
+s(maxFPKM):gene_typeProtein coding 5.82   6.73 794  <2e-16
 ```
 
 ```r
 
+
 plot(tissue.fit_null, residuals = T, shade = T, all.terms = T, pages = 1)
 ```
 
-![plot of chunk tissue_summary](figure/tissue_summary7.png) 
+![plot of chunk tissue_summary](figure/tissue_summary9.png) 
 
 ```r
 
@@ -852,11 +947,11 @@ anova(tissue.fit_null, tissue.fit1, test = "F")
 ```
 Analysis of Deviance Table
 
-Model 1: maxSpec ~ s(maxFPKM, bs = "cs")
-Model 2: maxSpec ~ s(maxFPKM, bs = "cs") + gene_type
+Model 1: maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type)
+Model 2: maxSpec ~ s(maxFPKM, bs = "cs", by = gene_type) + gene_type
   Resid. Df Resid. Dev   Df Deviance   F Pr(>F)    
-1     37442       1355                             
-2     37441       1337 1.02     17.4 476 <2e-16 ***
+1     37437       1323                             
+2     37436       1312 1.74     10.8 178 <2e-16 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
@@ -897,14 +992,19 @@ other attached packages:
  [5] sfsmisc_1.0-25           startupmsg_0.9          
  [7] dplyr_0.1.3              stringr_0.6.2           
  [9] reshape2_1.4             ggplot2_0.9.3.1         
-[11] knitr_1.5               
+[11] knitr_1.5                colorout_1.0-2          
 
 loaded via a namespace (and not attached):
- [1] assertthat_0.1   colorspace_1.2-4 digest_0.6.4     evaluate_0.5.3  
- [5] formatR_0.10     grid_3.1.0       gtable_0.1.2     labeling_0.2    
- [9] lattice_0.20-29  MASS_7.3-32      Matrix_1.1-3     munsell_0.4.2   
-[13] plyr_1.8.1       proto_0.3-10     Rcpp_0.11.1      scales_0.2.4    
-[17] tools_3.1.0     
+ [1] assertthat_0.1    betareg_3.0-4     codetools_0.2-8  
+ [4] colorspace_1.2-4  digest_0.6.4      evaluate_0.5.5   
+ [7] flexmix_2.3-11    formatR_0.10      Formula_1.1-1    
+[10] grid_3.1.0        gtable_0.1.2      labeling_0.2     
+[13] lattice_0.20-29   lmtest_0.9-33     markdown_0.6.5   
+[16] MASS_7.3-33       Matrix_1.1-3      modeltools_0.2-21
+[19] munsell_0.4.2     nnet_7.3-8        plyr_1.8.1       
+[22] proto_0.3-10      Rcpp_0.11.1       sandwich_2.3-0   
+[25] scales_0.2.4      stats4_3.1.0      tools_3.1.0      
+[28] zoo_1.7-11       
 ```
 
 

@@ -184,21 +184,32 @@ We are specifically removing any gene from this summary where $S$ cannot be dete
 Admittedly, we were quick to claim that lncRNAs are significantly more cell type specific than protein coding genes, owing perhaps to our prior understanding of lncRNA tissue-specificity and assuming that this would extend to the level of individual cell types. We initially made this claim based on the following observations:
 ```{r iniitial_spec,fig.width=12,fig.height=4}
 p <- ggplot(geneSummary)
-p + stat_ecdf(aes(x=maxSpec,color=gene_type)) + 
+p <- p + stat_ecdf(aes(x=maxSpec,color=gene_type)) + 
   theme_bw() + 
   scale_color_manual(values=c("red","grey5")) + 
+  #scale_x_continuous(limits=c(0,1.0)) +
   facet_grid(.~time) +
   coord_equal(1)
+p
+pdf("initial_spec.pdf",width=10,height=10)
+p
+dev.off()
 ```
 Here we see that the empirical cumulative density function (ecdf) of the maximum specificity score $S$ for both protein coding genes and lncRNAs from our set of statistically significant genes indicates that the lncRNAs are far more cell type specific at any time point than protein coding genes. However, this analysis was done without consideration for the distribution of expression values between the two gene types.
 
 ```{r cell_type_expression_dist,fig.width=12,fig.height=4}
 p<-ggplot(geneSummary)
-p + geom_density(aes(x=maxFPKM,color=gene_type)) + 
+p<- p + geom_density(aes(x=maxFPKM,color=gene_type)) + 
   facet_grid(.~time) + 
   theme_bw() + 
   scale_color_manual(values=c("red","black")) + 
   coord_equal(2)
+
+p
+pdf("cell_type_expression_dist.pdf",width=10,height=10)
+p
+dev.off()
+
 ```
 As our reviewer indicated, there is a strong bias for lncRNAs in the lower end of the expression regime. The next section(s) will detail the reviewer's concerns and attempt to address these issues in sufficient detail.
 
@@ -330,20 +341,32 @@ lines(fit1,col="red")
 One of the ways that we have addressed this criticism in the past, as it pertained to tissue specificity, is to remove the effect of 'low-expressing' genes that would bias specificity towards the higher end. To this end, one of the things that we can do is to filter for those genes with a minimum FPKM value of `r 10**fpkmCutoff`.  
 ```{r ignore_low,fig.width=12,fig.height=4}
 p<-ggplot(geneSummary)
-p + geom_density(aes(x=maxFPKM,color=gene_type)) + 
+p<- p + geom_density(aes(x=maxFPKM,color=gene_type)) + 
   facet_grid(.~time) + 
   theme_bw() + 
   scale_color_manual(values=c("red","black")) + 
   coord_equal(2) +
   geom_vline(xintercept=fpkmCutoff,linetype="dashed",color="grey50") + 
   annotate("text",label="FPKM threshold",x=fpkmCutoff,y=1.0,angle=90,vjust=1.5,hjust=0)
+
+p
+pdf("ignore_low.pdf",width=10,height=10)
+p
+dev.off()
+
 ```
 
 Assuming that gene must have fpkm greater than cutoff at given timepoint
 ```{r CDF_fpkmCutoff,fig.width=12,fig.height=4}
 #fpkmCutoff<-log10(2)
 p <-ggplot(subset(geneSummary,maxFPKM>=fpkmCutoff))
-p + stat_ecdf(aes(x=maxSpec,color=gene_type)) + facet_grid(.~time) + theme_bw()  + scale_color_manual(values=c("red","black")) + coord_equal(1)
+p1<-p + stat_ecdf(aes(x=maxSpec,color=gene_type)) + facet_grid(.~time) + theme_bw()  + scale_color_manual(values=c("red","black")) + coord_equal(1)
+
+p1
+pdf("CDF_fpkmCutoff.pdf",width=12,height=4)
+p1
+dev.off()
+
 ```
 The effect on specificity is reduced, however the lncRNAs still appear to be more tissue specific.  The problem with this analysis is that while we have removed the more strongly biasing low-expressing genes, we still have differences in the underlying distributions between lncRNAs and protein coding genes and this difference is most likely affecting our interpretations.
 
@@ -368,13 +391,20 @@ There are a few edge cases with 'perfect specificity' ($S=1.0$) that cannot be m
 #### A look at the relationship between specificity and expression
 ```{r spec_v_fpkm,fig.width=12,fig.height=4}
 p <-ggplot(geneSummary)
-p + geom_point(mapping=aes(x=maxFPKM,y=maxSpec),color="black",alpha=0.3,data=subset(geneSummary,gene_type=="Protein coding")) + geom_point(mapping=aes(x=maxFPKM,y=maxSpec),color="red",data=subset(geneSummary,gene_type!="Protein coding")) + facet_grid(gene_type~time) + theme_bw() + coord_equal(4)
+p + geom_point(mapping=aes(x=log(maxFPKM),y=asin(maxSpec),color=gene_type),alpha=0.3) + facet_grid(gene_type~time) + theme_bw() + scale_color_manual(values=c("red","black"))
+
+p + geom_point(mapping=aes(x=log(maxFPKM),y=maxSpec,color=gene_type),alpha=0.3) + facet_grid(gene_type~time) + theme_bw() + scale_color_manual(values=c("red","black"))
+
 
 ```
 The relationship between $S$ and maxFPKM is a continuous function that can be reasonably approximated by fitting the two variables using a cubic spline.
 
 ```{r spec_v_fpkm_smooth,fig.width=12,fig.height=4}
-p + geom_smooth(aes(x=maxFPKM,y=maxSpec,color=gene_type,fill=gene_type),method='auto') + facet_grid(.~time) + theme_bw() + scale_color_manual(values=c("red","black")) + scale_fill_manual(values=c("red","grey50")) + coord_equal(4)
+p1<-p + geom_smooth(aes(x=maxFPKM,y=maxSpec,color=gene_type,fill=gene_type),method='auto') + facet_grid(.~time) + theme_bw() + scale_color_manual(values=c("red","black")) + scale_fill_manual(values=c("red","grey50")) + coord_equal(4)
+p1
+pdf("spec_v_fpkm_smooth.pdf",width=12,height=4)
+p1
+dev.off()
 ```
 While the two curves are very similar, there does appear to be some separation in the regime of ~5-50 FPKM.  Let's try and model this relationship and see if gene_type has any influence over the shape of these data.
 
@@ -386,10 +416,10 @@ Owing to the quadratic relationship between $S$ and max FPKM, we decided to mode
 # Cell-level model  (projection neurons) #
 ##########################################
 
-fit1<-gam(maxSpec~s(maxFPKM,bs="cs")+gene_type+time,dat=geneSummary,family=gaussian) # I actually think it should be a truncated gaussian or beta, but I'm not entirely sure
+fit1<-gam(maxSpec~s(maxFPKM,bs="cs",by=gene_type)+time+gene_type,dat=geneSummary,family=gaussian) # I actually think it should be a truncated gaussian or beta, but I'm not entirely sure
 
 # Fitting vgam using beta distribution instead of gaussian
-#fit1<-vgam(maxSpec~s(maxFPKM)+gene_type+time,dat=subset(geneSummary,!is.na(maxSpec) & maxSpec<1.0),family=beta.ab(A = 0.10, B = 1.0))
+#fit1<-vgam(maxSpec~s(maxFPKM,by=gene_type)+gene_type+time,dat=subset(geneSummary,!is.na(maxSpec) & maxSpec<1.0),family=betaff)
 #fit2<-vgam(maxSpec~s(maxFPKM)+time,dat=subset(geneSummaryAIC,!is.na(maxSpec) & maxSpec<1.0),family=beta.ab(A = 0.10, B = 1.0))
 #mycol<-c('red','blue')
 #plot(fit1,se=TRUE,overlay=TRUE,llwd=2,lcol=mycol,scol=mycol)
@@ -416,7 +446,7 @@ Interestingly we also find evidence to support our other claim that there is an 
 To confirm that our lncRNA specificity result is significant, we would like to compare the above model to a nested model without gene_type as a parameter.
 
 ```{r cell_null}
-fit_null<-gam(maxSpec~s(maxFPKM,bs="cs")+time,dat=geneSummary)
+fit_null<-gam(maxSpec~s(maxFPKM,bs="cs",by=gene_type)+time,dat=geneSummary,family=gaussian)
 
 fit_null
 
@@ -473,6 +503,8 @@ geneSummaryTissue<-tissue.melt %.%
   group_by(gene_id,gene_type) %.%
   summarize(maxFPKM=max(fpkm),maxSpec=maxSpecificity(fpkm))
 
+geneSummaryTissue$gene_type<-factor(geneSummaryTissue$gene_type)
+
 geneSummaryTissue.bak<-geneSummaryTissue
 
 ```
@@ -499,7 +531,7 @@ p + stat_ecdf(aes(x=maxSpec,color=gene_type)) + theme_bw() + scale_color_manual(
 # Tissue-level model  #
 #######################
 
-tissue.fit1<-gam(maxSpec~s(maxFPKM,bs="cs")+gene_type,dat=geneSummaryTissue)
+tissue.fit1<-gam(maxSpec~s(maxFPKM,bs="cs",by=gene_type)+gene_type,dat=geneSummaryTissue,family=gaussian)
 #tissue.fit1<-vgam(maxSpec~s(maxFPKM)+gene_type,dat=geneSummaryTissue,family=beta.ab(A = 0.0, B = 1.0))
 tissue.fit1
 
@@ -508,14 +540,16 @@ summary(tissue.fit1)
 anova(tissue.fit1)
 
 plot(tissue.fit1,residuals=T,shade=T)
+plot(tissue.fit1,resid=T,pages=1,all.terms=T,rug=F,shade=T)
 
-tissue.fit_null<-gam(maxSpec~s(maxFPKM,bs="cs"),dat=geneSummaryTissue)
+tissue.fit_null<-gam(maxSpec~s(maxFPKM,bs="cs",by=gene_type),dat=geneSummaryTissue)
 
 tissue.fit_null
 
 summary(tissue.fit_null)
 
 anova(tissue.fit_null)
+
 
 plot(tissue.fit_null,residuals=T,shade=T,all.terms=T,pages=1)
 
